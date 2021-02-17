@@ -50,6 +50,9 @@ int InitiateRTSPVideo();
 int TCPSender_StartClient(char *clientAddress , int clientPort);
 void TCPSender_Close();
 int UDP_Unicast_InitServer(char *serverInterfaceAddress, int portno);
-int TCP_Client_Init(char *clientAddress, int clientPort);
 void TCP_Client_Close();
+int TCP_Client_Init(char *clientAddress, int clientPort);
+int UDPSender_StartClient(char *clientAddress , int clientPort);
+extern struct AES_ctx bctx;
+
 #endif 

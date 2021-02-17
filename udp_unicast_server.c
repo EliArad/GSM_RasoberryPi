@@ -34,9 +34,10 @@ static void* ReceiverThread(void *arg)
     while (flag == 0)    
     {
     
-    	 int n = recv(sockserver, buffer, 1316  , 0);						     
+    	 int n = recv(sockserver, buffer, 1316  , 0); 
+    	 //printf("n = %d\n" , n);
     	 count+=n;
-       printf("received size: %d\n", count);
+      //printf("received size: %d\n", count);
    	 if (n <= 0)
 	    {
 	       sleep(0);
