@@ -112,7 +112,7 @@ void* UDPSender_SenderThread(void *arg)
  	      printf("Failed to send %d\n" , n);
 	      return NULL;
    	}  
-   	usleep(1000);
+   	//usleep(1000);
    }
 }
 

@@ -26,6 +26,7 @@ void* TCPSender_SenderThread(void *arg);
 static pthread_t sendertid = -1;
 static int m_running = 1;
 extern volatile sig_atomic_t flag;
+static int connected = 0;
 
 int TCPSender_StartThread()
 {
@@ -40,22 +41,51 @@ int TCPSender_StartThread()
 	return 1;
 }
 
-
-int TCPSender_StartClient(char *clientAddress , int clientPort)
+void* TCPSender_CloseNoConnect(void *arg)
 {
 
-
+    while (flag == 0)
+    {
+    
     if ((sockclient = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
         return 0;
     }
 
     m_running = 1;
-    // clear servaddr
+    
+       sleep(4);
+       printf("closing socket\n");
+       if (connected == 0)
+          close(sockclient);
+    }
+} 
+
+
+pthread_t tid;
+int TCPSender_CheckNoConnect()
+{
+
+	int err = pthread_create(&tid, NULL, &TCPSender_CloseNoConnect, NULL);
+	if (err != 0)
+	{
+	    printf("\ncan't create thread :[%s]", strerror(err));
+	    CloseApp();
+	    return 0;
+	}
+	return 1;
+}
+
+
+int TCPSender_StartClient(char *clientAddress , int clientPort)
+{
+
+    TCPSender_CheckNoConnect();
+    
     bzero(&clientaddr, sizeof(clientaddr));
     clientaddr.sin_addr.s_addr = inet_addr(clientAddress);
     clientaddr.sin_port = htons(clientPort);
-    clientaddr.sin_family = AF_INET;
+    clientaddr.sin_family = AF_INET;    
 
 
     printf("trying to connect to %s:%d...\n", clientAddress , clientPort);
@@ -64,6 +94,8 @@ int TCPSender_StartClient(char *clientAddress , int clientPort)
         printf("\n Error : Connect Failed to client \n");
         return 0;
     }
+    
+    connected = 1;
     printf("Connected!\n");
 
     return 1;
@@ -85,7 +117,7 @@ void* TCPSender_SenderThread(void *arg)
       
       int size;
       
-      if (FifoPull(buffer, 1500) == 0)
+      if (FifoPull(buffer, 1328) == 0)
       {
           sleep(0);
           continue;          
@@ -98,7 +130,7 @@ void* TCPSender_SenderThread(void *arg)
           AES_ECB_encrypt(&bctx, buffer + i);            
       }
       #else 
-      size = 1500;
+      size = 1328;
       #endif             
       
       printf("try to send %d\n", size);
@@ -109,7 +141,6 @@ void* TCPSender_SenderThread(void *arg)
  	      printf("Failed to send %d\n" , n);
 	      return NULL;
    	}  
-   	usleep(1000);
    }
 }
 

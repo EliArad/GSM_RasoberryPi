@@ -1,3 +1,5 @@
+#multicast Address
+224.10.0.0
 # receiver address
 192.168.10.80
 #receiver port
@@ -5,6 +7,6 @@
 #sender ip address
 82.81.105.171
 # sender port
-6000
+7000
 #tcp server port
 8778

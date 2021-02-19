@@ -31,6 +31,7 @@ uint8_t b267key[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7
 struct AES_ctx bctx;
 pthread_t tid[3];
 char serverInterfaceAddress[100];
+char serverMulticastAddress[100];
 int clientPort;
 char clientAddress[100];
 int tcpServerPort = -1;
@@ -82,40 +83,17 @@ int main(int argc, char **argv)
    AES_init_ctx(&bctx, b267key);
  
 
-   if (argc == 1)
+   if (ReadConfig() == 0)
    {
-      if (ReadConfig() == 0)
-      {
-         printf("failed to read config file brouther.txt\n");
-         return 1;
-      }
-   } else 
+      printf("failed to read config file brouther.txt\n");
+      return 1;
+   } 
    
-   if (argc != 6) 
-   {
-     fprintf(stderr, "usage: %s <server port> < server address> <client port> <client address> <tcp server port>\n", argv[0]);
-     exit(1);
-   }
-   if (argc == 6)
-   { 
-      strcpy(serverInterfaceAddress, argv[1]);
-      serverPortNumber = atoi(argv[2]);
-
-      strcpy(clientAddress, argv[3]);
-      clientPort = atoi(argv[4]);
-      tcpServerPort = atoi(argv[5]);
-   
-      printf("server address: %s\n" , serverInterfaceAddress);
-      printf("server port: %d\n" , serverPortNumber);      
-      printf("client address: %s\n" , clientAddress);
-      printf("client port: %d\n" , clientPort);      
-      printf("tcp server port: %d\n" , tcpServerPort);
-   }
    
    //CreateFifo(1500000); // for rtsp
    CreateFifo(131600000); // for udp unicast      
 
-#if 0 
+#if 0
    if (TCPSender_StartClient(clientAddress, clientPort) == 0)
    {
 	   printf("failed to connect to client: %s:%d\n", clientAddress, clientPort);
@@ -134,7 +112,7 @@ int main(int argc, char **argv)
    
 
 #if 0  // tcp client that non block that start the udp receiver inside 
-   if (TCP_Client_Init(clientAddress, clientPort) == 0)
+   if (TCP_Client_Init(clientAddress, clientPort,serverMulticastAddress) == 0)
    {
        printf("failed to connect to client\n");
        CloseApp();
@@ -143,7 +121,8 @@ int main(int argc, char **argv)
 #endif 
 
 
-#if 1 
+#if 1
+        
     if (UDPSender_StartClient(clientAddress , clientPort) == 0)
     {
        printf("failed to connect to udp client\n");
@@ -151,7 +130,7 @@ int main(int argc, char **argv)
        return 1;       
     }
     
-    if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber) == 0)
+    if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber,serverMulticastAddress) == 0)
     {
        printf("failed to setup udp server\n");
        CloseApp();
@@ -163,7 +142,7 @@ int main(int argc, char **argv)
 #if 0
    FILE *handle = NULL;
    handle = fopen("video.ts" , "w+b");
-   if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber) > 0)
+   if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber,serverMulticastAddress) > 0)
    {
            
       #if 1  
@@ -184,5 +163,4 @@ int main(int argc, char **argv)
    
    FifoFree();
    CloseApp();
-
 }

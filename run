@@ -1,0 +1,4 @@
+echo "Wait 60 seconds for the wlan to be active"
+sleep 60
+echo "starting bauotech router"
+./brouter

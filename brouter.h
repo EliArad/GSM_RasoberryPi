@@ -3,7 +3,7 @@
 #include "aes.h"
 #include "os.h"
 
-#define USE_AES256    0
+#define USE_AES256    1
 
 #define BUFSIZE 1316
 //#define BUFSIZE 1328
@@ -49,10 +49,10 @@ int ReadConfig();
 int InitiateRTSPVideo();
 int TCPSender_StartClient(char *clientAddress , int clientPort);
 void TCPSender_Close();
-int UDP_Unicast_InitServer(char *serverInterfaceAddress, int portno);
+int UDP_Unicast_InitServer(char *serverInterfaceAddress, int portno, char *serverMulticastAddress);
 void TCP_Client_Close();
-int TCP_Client_Init(char *clientAddress, int clientPort);
+int TCP_Client_Init(char *clientAddress, int clientPort, char *serverMulticastAddress);
 int UDPSender_StartClient(char *clientAddress , int clientPort);
 extern struct AES_ctx bctx;
-
+void UdpServerSuspendReceive(int s);
 #endif 

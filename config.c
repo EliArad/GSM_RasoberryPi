@@ -21,7 +21,7 @@ extern int clientPort;
 extern char clientAddress[100];
 extern int tcpServerPort;
 extern int serverPortNumber;		/* port to listen on */
-
+extern char serverMulticastAddress[100];
 
 
 int ReadConfig()
@@ -32,6 +32,10 @@ int ReadConfig()
       return 0;
       
    char line[100];
+   
+   fgets(line, 100 , h);   
+   fgets(line, 100 , h);      
+   strcpy(serverMulticastAddress, line);   
    
    fgets(line, 100 , h);   
    fgets(line, 100 , h);      
@@ -60,13 +64,16 @@ int ReadConfig()
       
    if (strchr(clientAddress, 0xA) != NULL) 
       *strchr(clientAddress, 0xA) = 0;      
-      
+
+   if (strchr(serverMulticastAddress, 0xA) != NULL)
+      *strchr(serverMulticastAddress, 0xA) = 0;
+
+
+   printf("multicast address %s\n" , serverMulticastAddress);         
    printf("server address %s\n" , serverInterfaceAddress);   
-   printf("server port: %d\n\n" , serverPortNumber);   
-   
+   printf("server port: %d\n\n" , serverPortNumber);      
    printf("client ip address %s\n" , clientAddress);
-   printf("client port %d\n\n", clientPort);   
-   
+   printf("client port %d\n\n", clientPort);      
    printf("tcp server port %d\n" , tcpServerPort);
    
       

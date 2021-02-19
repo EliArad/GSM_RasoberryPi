@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <fcntl.h> 
 #include <sys/time.h>
 #include <string.h>
 #include <netdb.h>
@@ -23,9 +24,11 @@
 
 extern char serverInterfaceAddress[100];
 extern int serverPortNumber;
+extern char serverMulticastAddress[100];
 
 static char m_clientAddress[100];
 static  int m_clientPort = 0;
+static char m_serverMulticastAddress[100];
 static int m_connectedInternetClientSocket = -1;
 
 static struct sockaddr_in clientaddr;	
@@ -35,6 +38,8 @@ extern int flag;
 static int m_running = 1;
 static void* ClientConnectInternetThread(void *arg);
 static pthread_t ClientInternetTid = -1;
+static int serverStarted = 0;
+
 
 static void* TCP_Client_SenderThread(void *arg)
 {
@@ -42,6 +47,8 @@ static void* TCP_Client_SenderThread(void *arg)
    uint8_t buffer[13160];
    int count = 0;
    printf("starting TCP_Client_SenderThread\n");
+   
+   int counterr = 0;
    
    while (m_running == 1)   
    {
@@ -68,30 +75,45 @@ static void* TCP_Client_SenderThread(void *arg)
       #else 
       size = 1316;
       #endif             
+
+      n = send(sockclient, buffer , size, MSG_NOSIGNAL);			   
       
-      n = send(sockclient, buffer , size, 0);			   
-      #if 0 
-      if (n > 0)
-      {  
-         count+=n;
-         printf("sending %d\n", count);
-      }
-      #endif 
-	   if (n <= 0)
+	   while (n <= 0)
 	   {
- 	      printf("Failed to send %d\n" , n);
-	      continue;
-   	}  
+ 	      printf("counterr %d\n" ,counterr); 	      
+         n = send(sockclient, buffer , size, MSG_NOSIGNAL);			   
+	      usleep(1000);
+	      if (m_running == 0)
+	         return NULL;
+	      counterr++;   
+	      if (counterr > 150)
+	      {	    
+	          usleep(10000);
+	      } 
+	      if (counterr > 200)
+	      {
+	          
+            int err = pthread_create(&(ClientInternetTid), NULL, &ClientConnectInternetThread, NULL);
+            if (err != 0)
+            {
+                printf("\ncan't create thread :[%s]", strerror(err));
+                return 0;
+            }         	         	         
+            return NULL;
+	      }	      
+   	}     	
+   	counterr = 0;
    	//usleep(1000);
    }
 }
 
  
-int TCP_Client_Init(char *clientAddress, int clientPort)
+int TCP_Client_Init(char *clientAddress, int clientPort, char *serverMulticastAddress)
 {
 
    strcpy(m_clientAddress , clientAddress);
    m_clientPort = clientPort;
+   strcpy(m_serverMulticastAddress, serverMulticastAddress);
    
 #if 0
 
@@ -142,33 +164,48 @@ static void* ClientConnectInternetThread(void *arg)
 
       printf("Start Client Internet Connect Thread..\n");  
       
+
+      
+
+      
       while (1)      
       {
+      
+         UdpServerSuspendReceive(1);
+         sleep(1);      
+         FifoClear();         
       
          if (flag == 1)
          {
             printf("exist connecting again\n");
             return NULL;
-         }      
-         printf("Trying to connect sock internet client again...\n");
-         if (sockclient != -1)
-         {
-            close(sockclient);
-            sockclient = -1;
-         }
-         if ((sockclient = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)) == -1) 
-         {
-             perror("failed to create sock client 83944");
-             return NULL;
-         } 
+         }          
          
+      if (sockclient != -1)
+      {
+         printf("Closing socket\n");
+         close(sockclient);
+         sockclient = -1;
+      }      
+      
+      if ((sockclient = socket(AF_INET, SOCK_STREAM , IPPROTO_TCP)) == -1) 
+      //if ((sockclient = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)) == -1) 
+      {
+         perror("failed to create sock client 83944");
+         return NULL;
+      }
+      fcntl(sockclient, F_SETFL, O_NONBLOCK);       
+      bzero(&clientaddr, sizeof(clientaddr)); 
+      clientaddr.sin_addr.s_addr = inet_addr(m_clientAddress); 
+      clientaddr.sin_port = htons(m_clientPort); 
+      clientaddr.sin_family = AF_INET;            
+      printf("m_clientAddress: %s\n", m_clientAddress);
+      printf("client port %d\n", m_clientPort);      
          
-         bzero(&clientaddr, sizeof(clientaddr)); 
-         clientaddr.sin_addr.s_addr = inet_addr(m_clientAddress); 
-         clientaddr.sin_port = htons(m_clientPort); 
-         clientaddr.sin_family = AF_INET;            
-         printf("m_clientAddress: %s\n", m_clientAddress);
-         printf("client port %d\n", m_clientPort);
+          
+            
+         printf("Trying to connect sock internet client again...\n");         
+         printf("Opening socket\n");
          
          m_connectedInternetClientSocket = connect(sockclient, (struct sockaddr *)&clientaddr, sizeof(clientaddr));
          if (m_connectedInternetClientSocket == -1)
@@ -196,12 +233,12 @@ static void* ClientConnectInternetThread(void *arg)
 				     printf("Select return %d\n", iResult);
 				     sleep(1);
 				     continue;
-				 }
-				 else
+				 } 
+				 else 				 
 				 {
 				    printf("select return %d %d\n",iResult,  sockclient);
 				    if (FD_ISSET(sockclient, &Write))
-				    {
+				    {				    
 				       printf("sock client is ready!\n");
                    printf("connected sockclient internet success!!!\n");
                    printf("Creating Internet Sender Thread..\n");
@@ -211,21 +248,20 @@ static void* ClientConnectInternetThread(void *arg)
                        printf("\ncan't create Server Accept thread :[%s]", strerror(err));
                        return NULL;
                    } 
-                                      
-                   if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber) > 0)
-                   {
-           
-                   }                    
+                   
+                   if (serverStarted == 0)
+                   {  
+                      printf("UDP_Unicast_InitServer\n");                          
+                      if (UDP_Unicast_InitServer(serverInterfaceAddress , serverPortNumber, serverMulticastAddress) > 0)
+                      {
+                          serverStarted = 1;
+                      }                    
+                   }
+                   UdpServerSuspendReceive(0);
                    
                    printf("exit connect thread\n");
                    return NULL;         				       
-				    }
-				    else
-				    {
-				       printf("connect state 123\n");
-				       sleep(1);
-				       continue;
-				    }				    
+                }
              }				
 			}             
     } 

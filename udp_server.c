@@ -23,21 +23,35 @@ static pthread_t serverThreadId;
 static int sockserver = -1;
 extern int flag;
 static struct sockaddr_in serveraddr;
+static int m_udpSuspendReceive;
 
+void UdpServerSuspendReceive(int s)
+{
+
+   m_udpSuspendReceive = s; 
+}
 
 static void* ReceiverThread(void *arg)
 {
 
     uint8_t buffer[13160];
     int count = 0;
+    
+    printf("Receiver Thread..\n");
 
     while (flag == 0)    
     {
-    
+       /*
+       if (m_udpSuspendReceive == 1)       
+       {
+          usleep(10000);
+          continue;
+       }
+       */
     	 int n = recv(sockserver, buffer, 1316  , 0); 
     	 //printf("n = %d\n" , n);
     	 count+=n;
-      //printf("received size: %d\n", count);
+       //printf("received size: %d\n", count);
    	 if (n <= 0)
 	    {
 	       sleep(0);
@@ -56,12 +70,12 @@ static void* ReceiverThread(void *arg)
        }            
        //usleep(1000);  
    }   
+   printf("exit Receiver thread\n");
    return NULL;
-
 }
 
 
-int UDP_Unicast_InitServer(char *serverInterfaceAddress, int serverPortNumber)
+int UDP_Unicast_InitServer(char *serverInterfaceAddress, int serverPortNumber, char *serverMulticastAddress)
 {
 
    sockserver = socket(AF_INET, SOCK_DGRAM, 0);
@@ -92,11 +106,14 @@ int UDP_Unicast_InitServer(char *serverInterfaceAddress, int serverPortNumber)
 	bzero((char *)&serveraddr, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
 	//serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);  //inet_addr(serverInterfaceAddress);
-   serveraddr.sin_addr.s_addr = inet_addr(serverInterfaceAddress);
-	serveraddr.sin_port = htons((unsigned short)serverPortNumber);
+   if (strcmp(serverMulticastAddress , "0.0.0.0") != 0)	
+      serveraddr.sin_addr.s_addr = inet_addr(serverMulticastAddress);
+   else 
+      serveraddr.sin_addr.s_addr = inet_addr(serverInterfaceAddress);   
+   
+	serveraddr.sin_port = htons((unsigned short)serverPortNumber);	
 	printf("udp unicast address: %s\n" , serverInterfaceAddress);
 	printf("udp unicast port: %d\n" , serverPortNumber);
-	
 	
 
 	/* 
@@ -108,7 +125,21 @@ int UDP_Unicast_InitServer(char *serverInterfaceAddress, int serverPortNumber)
 		return 0;
    }
    
+   if (strcmp(serverMulticastAddress , "0.0.0.0") != 0)
+   {
+      printf("Joining Multicast Group %s\n" , serverMulticastAddress);
+      struct ip_mreq mreq;
+      mreq.imr_multiaddr.s_addr = inet_addr(serverMulticastAddress);
+      mreq.imr_interface.s_addr = inet_addr(serverInterfaceAddress);
+      if (setsockopt(sockserver, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+      {
+          perror("setsockopt");
+          exit(1); 
+      }
+   }   
    
+
+   m_udpSuspendReceive = 1;      
    int err = pthread_create(&serverThreadId, NULL, &ReceiverThread, NULL);
    if (err != 0)
    {
@@ -118,4 +149,12 @@ int UDP_Unicast_InitServer(char *serverInterfaceAddress, int serverPortNumber)
    }   
 
    return 1;
+}
+
+
+int UDP_ServerSuspendReceive()
+{
+
+   m_udpSuspendReceive = 1;   
+
 }
